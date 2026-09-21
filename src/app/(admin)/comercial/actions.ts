@@ -143,9 +143,13 @@ async function provisionarUsuarioNoTenant(params: {
     throw new Error(`Não consegui chamar o Ecdise (${url}) pra criar o usuário: ${err}`)
   }
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => null)
-    throw new Error(data?.error || `O Ecdise recusou criar o usuário (HTTP ${res.status}).`)
+  const data = await res.json().catch(() => null)
+  if (!res.ok || !data?.ok) {
+    // Cobre inclusive o caso do Ecdise redirecionar a chamada (ex: pra tela
+    // de login, se a rota não estiver liberada no middleware dele) — nesse
+    // caso o fetch segue o redirect e devolve 200 de uma página HTML, não
+    // do JSON esperado, então checar só res.ok não bastava.
+    throw new Error(data?.error || `O Ecdise não confirmou a criação do usuário (HTTP ${res.status}).`)
   }
 }
 
