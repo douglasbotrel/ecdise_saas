@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export default async function BancosPage({
   searchParams,
 }: {
-  searchParams: { erro?: string; criado?: string }
+  searchParams: { erro?: string; criado?: string; limpo?: string }
 }) {
   const bancos = await prisma.bancoDisponivel.findMany({ orderBy: { criadoEm: 'desc' } })
 
@@ -25,6 +25,7 @@ export default async function BancosPage({
 
       {searchParams.erro && <Erro>{searchParams.erro}</Erro>}
       {searchParams.criado && <Aviso>Banco adicionado ao pool.</Aviso>}
+      {searchParams.limpo && <Aviso>Dados de "{searchParams.limpo}" apagados — o banco está vazio e pronto pra um cliente novo.</Aviso>}
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold text-neutral-700">Disponíveis agora ({bancos.length})</h2>
@@ -46,11 +47,16 @@ export default async function BancosPage({
                   <div className="font-medium text-neutral-800">{banco.apelido}</div>
                   <div className="text-xs text-neutral-500">{preview}</div>
                 </div>
-                <form action={removerComId}>
-                  <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800">
-                    Remover do pool
-                  </button>
-                </form>
+                <div className="flex items-center gap-3">
+                  <a href={`/bancos/${banco.id}/limpar`} className="text-xs font-medium text-amber-600 hover:text-amber-800">
+                    Limpar dados
+                  </a>
+                  <form action={removerComId}>
+                    <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800">
+                      Remover do pool
+                    </button>
+                  </form>
+                </div>
               </li>
             )
           })}

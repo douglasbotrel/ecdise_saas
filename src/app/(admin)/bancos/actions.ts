@@ -5,7 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { registrarAuditoria } from '@/lib/auditoria'
 import { redirectComErro, isNextRedirectError } from '@/lib/redirect-erro'
-import { encrypt } from '@/lib/crypto'
+import { encrypt, decrypt } from '@/lib/crypto'
+import { limparDadosDoBanco } from '@/lib/limpar-banco'
 
 function campoTexto(formData: FormData, nome: string): string | null {
   const valor = formData.get(nome)
@@ -94,5 +95,35 @@ export async function usarBancoNaEmpresa(empresaId: string, formData: FormData) 
     if (isNextRedirectError(err)) throw err
     console.error('[usarBancoNaEmpresa] falha:', err)
     redirectComErro(`/comercial/${empresaId}`, mensagemDeErro(err))
+  }
+}
+
+// Apaga todos os dados de dentro do banco (mantém no pool, só fica vazio).
+// Exige digitar o apelido de novo pra confirmar — é irreversível.
+export async function limparBancoDisponivel(id: string, formData: FormData) {
+  const caminhoConfirmar = `/bancos/${id}/limpar`
+  try {
+    const banco = await prisma.bancoDisponivel.findUnique({ where: { id } })
+    if (!banco) throw new Error('Esse banco não existe mais no pool.')
+
+    const confirmacao = campoTexto(formData, 'confirmacao')
+    if (confirmacao !== banco.apelido) {
+      throw new Error('O apelido digitado não bate. Digite exatamente igual pra confirmar a limpeza.')
+    }
+
+    const databaseUrl = decrypt(banco.databaseUrlCriptografada)
+    const { tabelas } = await limparDadosDoBanco(databaseUrl)
+
+    await registrarAuditoria({
+      acao: 'BANCO_DISPONIVEL_LIMPO',
+      detalhes: `"${banco.apelido}" — ${tabelas.length} tabela(s) esvaziada(s): ${tabelas.join(', ') || '(nenhuma tabela encontrada)'}`,
+    })
+
+    revalidatePath('/bancos')
+    redirect(`/bancos?limpo=${encodeURIComponent(banco.apelido)}`)
+  } catch (err) {
+    if (isNextRedirectError(err)) throw err
+    console.error('[limparBancoDisponivel] falha:', err)
+    redirectComErro(caminhoConfirmar, mensagemDeErro(err))
   }
 }

@@ -42,6 +42,17 @@ export default async function ExcluirEmpresaPage({
       )}
 
       <form action={excluirComId} className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
+        {empresa.databaseUrlCriptografada && (
+          <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <input type="checkbox" name="apagarDados" className="mt-0.5 rounded border-neutral-300" />
+            <span>
+              Também apagar todos os dados de dentro do banco Neon desta empresa (clientes, contratos, projetos,
+              usuários...). A estrutura do banco continua — só fica vazio, pronto pra reaproveitar com outro cliente
+              sem precisar rodar migração de novo. <strong>Irreversível.</strong> Se deixar desmarcado, o banco
+              continua com os dados como estão — cadastre em "Bancos" depois se quiser limpar manualmente mais tarde.
+            </span>
+          </label>
+        )}
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-neutral-700">
             Digite exatamente <span className="font-mono">{empresa.nomeEmpresa}</span> pra confirmar

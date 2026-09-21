@@ -278,16 +278,37 @@ export async function excluirEmpresa(id: string, formData: FormData) {
       throw new Error('O nome digitado não bate com o nome da empresa. Digite exatamente igual pra confirmar a exclusão.')
     }
 
+    const tambemApagarDados = formData.get('apagarDados') === 'on'
+
+    // Se vai apagar os dados do banco também, precisa descriptografar a URL
+    // ANTES de excluir a empresa — depois de excluída, esse valor some daqui.
+    let databaseUrlParaLimpar: string | null = null
+    if (tambemApagarDados && empresa.databaseUrlCriptografada) {
+      const { decrypt } = await import('@/lib/crypto')
+      databaseUrlParaLimpar = decrypt(empresa.databaseUrlCriptografada)
+    }
+
     // Cascade no schema já apaga ModuloContratado e AcessoRoteamento junto.
-    // O banco Neon do cliente NÃO é apagado (fica fora do controle deste
-    // sistema) — nem o Usuario real que existe no banco do tenant. Só some
-    // o registro comercial e o roteamento de login daqui pra frente.
+    // O Usuario real que existe no banco do tenant NÃO é apagado por essa
+    // exclusão em si — só some se `tambemApagarDados` estiver marcado.
     await prisma.empresa.delete({ where: { id } })
+
+    let detalhesLimpeza = 'banco Neon e usuário do tenant NÃO foram apagados, só o registro comercial.'
+    if (tambemApagarDados && databaseUrlParaLimpar) {
+      try {
+        const { limparDadosDoBanco } = await import('@/lib/limpar-banco')
+        const { tabelas } = await limparDadosDoBanco(databaseUrlParaLimpar)
+        detalhesLimpeza = `banco Neon também foi limpo — ${tabelas.length} tabela(s) esvaziada(s).`
+      } catch (errLimpeza) {
+        console.error('[excluirEmpresa] empresa excluída mas falhou ao limpar o banco:', errLimpeza)
+        detalhesLimpeza = `empresa excluída, mas FALHOU ao limpar o banco Neon: ${mensagemDeErro(errLimpeza)} — os dados antigos ainda estão lá, precisa limpar manualmente (cadastre em "Bancos" e use "Limpar dados").`
+      }
+    }
 
     await registrarAuditoria({
       acao: 'EMPRESA_EXCLUIDA',
       empresaId: id,
-      detalhes: `"${empresa.nomeEmpresa}" — banco Neon e usuário do tenant NÃO foram apagados, só o registro comercial.`,
+      detalhes: `"${empresa.nomeEmpresa}" — ${detalhesLimpeza}`,
     })
 
     revalidatePath('/comercial')

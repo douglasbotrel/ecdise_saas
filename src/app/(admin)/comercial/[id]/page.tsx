@@ -154,49 +154,6 @@ export default async function EditarEmpresaPage({
       </section>
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5">
-        <h2 className="mb-1 text-sm font-semibold text-neutral-700">Acessos (roteamento de login)</h2>
-        <p className="mb-4 text-xs text-neutral-500">
-          Cada acesso cadastrado aqui cria o usuário de verdade (com a senha que você definir) dentro do banco desta
-          empresa, e o e-mail é o que o sistema usa pra saber, no login, a qual empresa (e banco) ele pertence.
-        </p>
-        <ul className="mb-4 space-y-1 text-sm">
-          {empresa.acessos.length === 0 && <li className="text-neutral-400">Nenhum acesso cadastrado ainda.</li>}
-          {empresa.acessos.map((acesso) => {
-            const removerAcessoComId = removerAcesso.bind(null, empresa.id, acesso.id)
-            return (
-              <li key={acesso.id} className="flex items-center justify-between rounded border border-neutral-100 px-3 py-2">
-                <span>{acesso.nome ? `${acesso.nome} — ` : ''}{acesso.email}</span>
-                <div className="flex items-center gap-3">
-                  <span className={acesso.ativo ? 'text-brand-600' : 'text-neutral-400'}>
-                    {acesso.ativo ? 'ativo' : 'inativo'}
-                  </span>
-                  <form action={removerAcessoComId}>
-                    <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800">
-                      Remover
-                    </button>
-                  </form>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-        <form action={criarAcessoComId} className="flex flex-wrap items-end gap-3">
-          <Campo label="Nome">
-            <input name="nome" className="input" />
-          </Campo>
-          <Campo label="E-mail *">
-            <input name="email" type="email" required className="input" />
-          </Campo>
-          <Campo label="Senha * (mín. 8 caracteres)">
-            <input name="senha" type="text" required minLength={8} className="input" />
-          </Campo>
-          <button type="submit" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
-            + Adicionar acesso
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-lg border border-neutral-200 bg-white p-5">
         <h2 className="mb-1 text-sm font-semibold text-neutral-700">Banco de dados desta empresa</h2>
         <p className="mb-4 text-xs text-neutral-500">
           Connection string do banco Neon exclusivo desse cliente (criada seguindo o playbook de provisionamento).
@@ -239,6 +196,49 @@ export default async function EditarEmpresaPage({
           </button>
         </form>
       </section>
+      <section className="rounded-lg border border-neutral-200 bg-white p-5">
+        <h2 className="mb-1 text-sm font-semibold text-neutral-700">Acessos (roteamento de login)</h2>
+        <p className="mb-4 text-xs text-neutral-500">
+          Cada acesso cadastrado aqui cria o usuário de verdade (com a senha que você definir) dentro do banco desta
+          empresa, e o e-mail é o que o sistema usa pra saber, no login, a qual empresa (e banco) ele pertence.
+        </p>
+        <ul className="mb-4 space-y-1 text-sm">
+          {empresa.acessos.length === 0 && <li className="text-neutral-400">Nenhum acesso cadastrado ainda.</li>}
+          {empresa.acessos.map((acesso) => {
+            const removerAcessoComId = removerAcesso.bind(null, empresa.id, acesso.id)
+            return (
+              <li key={acesso.id} className="flex items-center justify-between rounded border border-neutral-100 px-3 py-2">
+                <span>{acesso.nome ? `${acesso.nome} — ` : ''}{acesso.email}</span>
+                <div className="flex items-center gap-3">
+                  <span className={acesso.ativo ? 'text-brand-600' : 'text-neutral-400'}>
+                    {acesso.ativo ? 'ativo' : 'inativo'}
+                  </span>
+                  <form action={removerAcessoComId}>
+                    <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800">
+                      Remover
+                    </button>
+                  </form>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+        <form action={criarAcessoComId} className="flex flex-wrap items-end gap-3">
+          <Campo label="Nome">
+            <input name="nome" className="input" />
+          </Campo>
+          <Campo label="E-mail *">
+            <input name="email" type="email" required className="input" />
+          </Campo>
+          <Campo label="Senha * (mín. 8 caracteres)">
+            <input name="senha" type="text" required minLength={8} className="input" />
+          </Campo>
+          <button type="submit" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+            + Adicionar acesso
+          </button>
+        </form>
+      </section>
+
     </div>
   )
 }
