@@ -6,7 +6,13 @@ import { atualizarEmpresa, atualizarModulosForm, criarAcesso, removerAcesso, atu
 
 export const dynamic = 'force-dynamic'
 
-export default async function EditarEmpresaPage({ params }: { params: { id: string } }) {
+export default async function EditarEmpresaPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string }
+  searchParams: { modulosSalvos?: string; acessoCriado?: string }
+}) {
   const empresa = await prisma.empresa.findUnique({
     where: { id: params.id },
     include: { modulosContratados: true, acessos: { orderBy: { criadoEm: 'desc' } } },
@@ -28,6 +34,13 @@ export default async function EditarEmpresaPage({ params }: { params: { id: stri
           {empresa.tipoContrato ? ` · ${TIPO_CONTRATO_LABELS[empresa.tipoContrato]}` : ''}
         </p>
       </div>
+
+      {searchParams.modulosSalvos && (
+        <Aviso>Módulos salvos com sucesso.</Aviso>
+      )}
+      {searchParams.acessoCriado && (
+        <Aviso>Acesso criado — o usuário já pode logar no Ecdise com o e-mail e a senha cadastrados.</Aviso>
+      )}
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold text-neutral-700">Dados comerciais</h2>
@@ -132,8 +145,8 @@ export default async function EditarEmpresaPage({ params }: { params: { id: stri
       <section className="rounded-lg border border-neutral-200 bg-white p-5">
         <h2 className="mb-1 text-sm font-semibold text-neutral-700">Acessos (roteamento de login)</h2>
         <p className="mb-4 text-xs text-neutral-500">
-          Cada e-mail cadastrado aqui é o que o sistema usa para saber, no login, a qual empresa (e banco) aquele usuário pertence.
-          A senha em si é criada depois, direto no banco desta empresa.
+          Cada acesso cadastrado aqui cria o usuário de verdade (com a senha que você definir) dentro do banco desta
+          empresa, e o e-mail é o que o sistema usa pra saber, no login, a qual empresa (e banco) ele pertence.
         </p>
         <ul className="mb-4 space-y-1 text-sm">
           {empresa.acessos.length === 0 && <li className="text-neutral-400">Nenhum acesso cadastrado ainda.</li>}
@@ -162,6 +175,9 @@ export default async function EditarEmpresaPage({ params }: { params: { id: stri
           </Campo>
           <Campo label="E-mail *">
             <input name="email" type="email" required className="input" />
+          </Campo>
+          <Campo label="Senha * (mín. 8 caracteres)">
+            <input name="senha" type="text" required minLength={8} className="input" />
           </Campo>
           <button type="submit" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
             + Adicionar acesso
@@ -202,5 +218,13 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1 block font-medium text-neutral-700">{label}</span>
       {children}
     </label>
+  )
+}
+
+function Aviso({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-700">
+      {children}
+    </div>
   )
 }

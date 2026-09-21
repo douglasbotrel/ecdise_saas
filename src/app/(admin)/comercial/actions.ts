@@ -93,16 +93,60 @@ export async function atualizarModulos(id: string, modulosMarcados: string[]) {
 
 export async function criarAcesso(empresaId: string, formData: FormData) {
   const email = campoTexto(formData, 'email')
+  const nome = campoTexto(formData, 'nome')
+  const senha = campoTexto(formData, 'senha')
   if (!email) throw new Error('E-mail é obrigatório.')
+  if (!senha) throw new Error('Senha é obrigatória — é ela que o cliente vai usar pra entrar.')
+  if (senha.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.')
 
+  // 1) Cria/reseta o usuário DE VERDADE (com senha) no banco daquele tenant.
+  //    O AcessoRoteamento abaixo é só o roteamento — sem isso aqui, o e-mail
+  //    cadastrado nunca conseguiria logar (não existiria como Usuario em
+  //    banco nenhum).
+  await provisionarUsuarioNoTenant({ empresaId, nome, email, senha })
+
+  // 2) Cria o roteamento (email -> empresa) que o login do Ecdise consulta.
   await prisma.acessoRoteamento.create({
-    data: {
-      empresaId,
-      email,
-      nome: campoTexto(formData, 'nome'),
-    },
+    data: { empresaId, email, nome },
   })
+
   revalidatePath(`/comercial/${empresaId}`)
+  redirect(`/comercial/${empresaId}?acessoCriado=1`)
+}
+
+async function provisionarUsuarioNoTenant(params: {
+  empresaId: string
+  nome: string | null
+  email: string
+  senha: string
+}) {
+  const url = process.env.ECDISE_APP_URL
+  const secret = process.env.CONTROL_PLANE_INTERNAL_SECRET
+  if (!url || !secret) {
+    throw new Error('ECDISE_APP_URL e/ou CONTROL_PLANE_INTERNAL_SECRET não configurados nas variáveis de ambiente.')
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${url.replace(/\/$/, '')}/api/admin/provisionar-usuario`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
+      body: JSON.stringify({
+        empresaId: params.empresaId,
+        nome: params.nome || params.email,
+        email: params.email,
+        senha: params.senha,
+      }),
+      cache: 'no-store',
+    })
+  } catch (err) {
+    throw new Error(`Não consegui chamar o Ecdise (${url}) pra criar o usuário: ${err}`)
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error || `O Ecdise recusou criar o usuário (HTTP ${res.status}).`)
+  }
 }
 
 export async function removerAcesso(empresaId: string, acessoId: string) {
@@ -113,6 +157,7 @@ export async function removerAcesso(empresaId: string, acessoId: string) {
 export async function atualizarModulosForm(id: string, formData: FormData) {
   const modulosMarcados = formData.getAll('modulos').map(String)
   await atualizarModulos(id, modulosMarcados)
+  redirect(`/comercial/${id}?modulosSalvos=1`)
 }
 
 export async function atualizarDatabaseUrl(id: string, formData: FormData) {
