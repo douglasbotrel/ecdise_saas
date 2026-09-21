@@ -9,6 +9,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <span className="font-semibold text-brand-700">Ecdise SaaS</span>
           <nav className="flex flex-1 gap-4 text-sm text-neutral-600">
             <Link href="/comercial" className="hover:text-brand-700">Gestão Comercial</Link>
+            <Link href="/bancos" className="hover:text-brand-700">Bancos</Link>
             <Link href="/auditoria" className="hover:text-brand-700">Auditoria</Link>
           </nav>
           <form action={logout}>

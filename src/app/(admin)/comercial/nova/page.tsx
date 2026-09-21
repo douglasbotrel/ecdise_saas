@@ -1,10 +1,19 @@
 import { criarEmpresa } from '../actions'
 import { STATUS_LABELS, STATUS_ORDEM, TIPO_CONTRATO_LABELS } from '@/lib/format'
 
-export default function NovaEmpresaPage() {
+export default function NovaEmpresaPage({
+  searchParams,
+}: {
+  searchParams: { erro?: string }
+}) {
   return (
     <div className="max-w-2xl space-y-4">
       <h1 className="text-xl font-semibold">Nova empresa</h1>
+      {searchParams.erro && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {searchParams.erro}
+        </div>
+      )}
       <form action={criarEmpresa} className="space-y-4 rounded-lg border border-neutral-200 bg-white p-5">
         <Campo label="Nome da empresa *">
           <input name="nomeEmpresa" required className="input" />

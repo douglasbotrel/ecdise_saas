@@ -4,7 +4,11 @@ import { formatCentavos, STATUS_LABELS, STATUS_ORDEM } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ComercialPage() {
+export default async function ComercialPage({
+  searchParams,
+}: {
+  searchParams: { empresaExcluida?: string }
+}) {
   const empresas = await prisma.empresa.findMany({
     orderBy: { atualizadoEm: 'desc' },
   })
@@ -20,6 +24,12 @@ export default async function ComercialPage() {
 
   return (
     <div className="space-y-6">
+      {searchParams.empresaExcluida && (
+        <div className="rounded-md border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-700">
+          Empresa excluída. O banco Neon dela continua existindo — cadastre em "Bancos" se quiser reaproveitar.
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Gestão Comercial</h1>

@@ -5,6 +5,7 @@ import { parseValorParaCentavos } from '@/lib/format'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { registrarAuditoria } from '@/lib/auditoria'
+import { redirectComErro, isNextRedirectError } from '@/lib/redirect-erro'
 
 function campoTexto(formData: FormData, nome: string): string | null {
   const valor = formData.get(nome)
@@ -13,81 +14,94 @@ function campoTexto(formData: FormData, nome: string): string | null {
   return limpo === '' ? null : limpo
 }
 
+function mensagemDeErro(err: unknown): string {
+  return err instanceof Error ? err.message : 'Erro inesperado. Tenta de novo — se continuar, me avisa.'
+}
+
 export async function criarEmpresa(formData: FormData) {
-  const nomeEmpresa = campoTexto(formData, 'nomeEmpresa')
-  const responsavelNome = campoTexto(formData, 'responsavelNome')
-  const responsavelEmail = campoTexto(formData, 'responsavelEmail')
+  try {
+    const nomeEmpresa = campoTexto(formData, 'nomeEmpresa')
+    const responsavelNome = campoTexto(formData, 'responsavelNome')
+    const responsavelEmail = campoTexto(formData, 'responsavelEmail')
 
-  if (!nomeEmpresa || !responsavelNome || !responsavelEmail) {
-    throw new Error('Nome da empresa, responsável e e-mail são obrigatórios.')
+    if (!nomeEmpresa || !responsavelNome || !responsavelEmail) {
+      throw new Error('Nome da empresa, responsável e e-mail são obrigatórios.')
+    }
+
+    const empresa = await prisma.empresa.create({
+      data: {
+        nomeEmpresa,
+        cnpj: campoTexto(formData, 'cnpj'),
+        responsavelNome,
+        responsavelEmail,
+        responsavelTelefone: campoTexto(formData, 'responsavelTelefone'),
+        status: (campoTexto(formData, 'status') as any) ?? 'LEAD',
+        tipoContrato: campoTexto(formData, 'tipoContrato') as any,
+        dataFechamentoContrato: campoTexto(formData, 'dataFechamentoContrato')
+          ? new Date(campoTexto(formData, 'dataFechamentoContrato')!)
+          : null,
+        valorFechadoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorFechado')),
+        valorInstalacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorInstalacao')),
+        valorMensalCentavos: parseValorParaCentavos(campoTexto(formData, 'valorMensal')),
+        valorCustomizacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCustomizacao')),
+        valorCompraCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCompra')),
+        observacoesComerciais: campoTexto(formData, 'observacoesComerciais'),
+      },
+    })
+
+    await registrarAuditoria({ acao: 'EMPRESA_CRIADA', empresaId: empresa.id, detalhes: `"${empresa.nomeEmpresa}"` })
+
+    revalidatePath('/comercial')
+    redirect(`/comercial/${empresa.id}`)
+  } catch (err) {
+    if (isNextRedirectError(err)) throw err
+    console.error('[criarEmpresa] falha:', err)
+    redirectComErro('/comercial/nova', mensagemDeErro(err))
   }
-
-  const empresa = await prisma.empresa.create({
-    data: {
-      nomeEmpresa,
-      cnpj: campoTexto(formData, 'cnpj'),
-      responsavelNome,
-      responsavelEmail,
-      responsavelTelefone: campoTexto(formData, 'responsavelTelefone'),
-      status: (campoTexto(formData, 'status') as any) ?? 'LEAD',
-      tipoContrato: campoTexto(formData, 'tipoContrato') as any,
-      dataFechamentoContrato: campoTexto(formData, 'dataFechamentoContrato')
-        ? new Date(campoTexto(formData, 'dataFechamentoContrato')!)
-        : null,
-      valorFechadoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorFechado')),
-      valorInstalacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorInstalacao')),
-      valorMensalCentavos: parseValorParaCentavos(campoTexto(formData, 'valorMensal')),
-      valorCustomizacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCustomizacao')),
-      valorCompraCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCompra')),
-      observacoesComerciais: campoTexto(formData, 'observacoesComerciais'),
-    },
-  })
-
-  await registrarAuditoria({
-    acao: 'EMPRESA_CRIADA',
-    empresaId: empresa.id,
-    detalhes: `"${empresa.nomeEmpresa}"`,
-  })
-
-  revalidatePath('/comercial')
-  redirect(`/comercial/${empresa.id}`)
 }
 
 export async function atualizarEmpresa(id: string, formData: FormData) {
-  const nomeEmpresa = campoTexto(formData, 'nomeEmpresa')
-  const responsavelNome = campoTexto(formData, 'responsavelNome')
-  const responsavelEmail = campoTexto(formData, 'responsavelEmail')
+  try {
+    const nomeEmpresa = campoTexto(formData, 'nomeEmpresa')
+    const responsavelNome = campoTexto(formData, 'responsavelNome')
+    const responsavelEmail = campoTexto(formData, 'responsavelEmail')
 
-  if (!nomeEmpresa || !responsavelNome || !responsavelEmail) {
-    throw new Error('Nome da empresa, responsável e e-mail são obrigatórios.')
+    if (!nomeEmpresa || !responsavelNome || !responsavelEmail) {
+      throw new Error('Nome da empresa, responsável e e-mail são obrigatórios.')
+    }
+
+    await prisma.empresa.update({
+      where: { id },
+      data: {
+        nomeEmpresa,
+        cnpj: campoTexto(formData, 'cnpj'),
+        responsavelNome,
+        responsavelEmail,
+        responsavelTelefone: campoTexto(formData, 'responsavelTelefone'),
+        status: campoTexto(formData, 'status') as any,
+        tipoContrato: campoTexto(formData, 'tipoContrato') as any,
+        dataFechamentoContrato: campoTexto(formData, 'dataFechamentoContrato')
+          ? new Date(campoTexto(formData, 'dataFechamentoContrato')!)
+          : null,
+        valorFechadoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorFechado')),
+        valorInstalacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorInstalacao')),
+        valorMensalCentavos: parseValorParaCentavos(campoTexto(formData, 'valorMensal')),
+        valorCustomizacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCustomizacao')),
+        valorCompraCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCompra')),
+        observacoesComerciais: campoTexto(formData, 'observacoesComerciais'),
+      },
+    })
+
+    await registrarAuditoria({ acao: 'EMPRESA_ATUALIZADA', empresaId: id })
+
+    revalidatePath('/comercial')
+    revalidatePath(`/comercial/${id}`)
+    redirect(`/comercial/${id}?salvo=1`)
+  } catch (err) {
+    if (isNextRedirectError(err)) throw err
+    console.error('[atualizarEmpresa] falha:', err)
+    redirectComErro(`/comercial/${id}`, mensagemDeErro(err))
   }
-
-  await prisma.empresa.update({
-    where: { id },
-    data: {
-      nomeEmpresa,
-      cnpj: campoTexto(formData, 'cnpj'),
-      responsavelNome,
-      responsavelEmail,
-      responsavelTelefone: campoTexto(formData, 'responsavelTelefone'),
-      status: campoTexto(formData, 'status') as any,
-      tipoContrato: campoTexto(formData, 'tipoContrato') as any,
-      dataFechamentoContrato: campoTexto(formData, 'dataFechamentoContrato')
-        ? new Date(campoTexto(formData, 'dataFechamentoContrato')!)
-        : null,
-      valorFechadoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorFechado')),
-      valorInstalacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorInstalacao')),
-      valorMensalCentavos: parseValorParaCentavos(campoTexto(formData, 'valorMensal')),
-      valorCustomizacaoCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCustomizacao')),
-      valorCompraCentavos: parseValorParaCentavos(campoTexto(formData, 'valorCompra')),
-      observacoesComerciais: campoTexto(formData, 'observacoesComerciais'),
-    },
-  })
-
-  await registrarAuditoria({ acao: 'EMPRESA_ATUALIZADA', empresaId: id })
-
-  revalidatePath('/comercial')
-  revalidatePath(`/comercial/${id}`)
 }
 
 export async function atualizarModulos(id: string, modulosMarcados: string[]) {
@@ -108,36 +122,48 @@ export async function atualizarModulos(id: string, modulosMarcados: string[]) {
 }
 
 export async function criarAcesso(empresaId: string, formData: FormData) {
-  const emailDigitado = campoTexto(formData, 'email')
-  const nome = campoTexto(formData, 'nome')
-  const senha = campoTexto(formData, 'senha')
-  if (!emailDigitado) throw new Error('E-mail é obrigatório.')
-  if (!senha) throw new Error('Senha é obrigatória — é ela que o cliente vai usar pra entrar.')
-  if (senha.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.')
+  try {
+    const emailDigitado = campoTexto(formData, 'email')
+    const nome = campoTexto(formData, 'nome')
+    const senha = campoTexto(formData, 'senha')
+    if (!emailDigitado) throw new Error('E-mail é obrigatório.')
+    if (!senha) throw new Error('Senha é obrigatória — é ela que o cliente vai usar pra entrar.')
+    if (senha.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.')
 
-  // Normaliza pra minúsculo aqui — o login (e o roteamento) sempre comparam
-  // e-mail em minúsculo, então um cadastro com maiúsculas nunca bateria.
-  const email = emailDigitado.toLowerCase()
+    // Normaliza pra minúsculo aqui — o login (e o roteamento) sempre comparam
+    // e-mail em minúsculo, então um cadastro com maiúsculas nunca bateria.
+    const email = emailDigitado.toLowerCase()
 
-  // 1) Cria/reseta o usuário DE VERDADE (com senha) no banco daquele tenant.
-  //    O AcessoRoteamento abaixo é só o roteamento — sem isso aqui, o e-mail
-  //    cadastrado nunca conseguiria logar (não existiria como Usuario em
-  //    banco nenhum).
-  await provisionarUsuarioNoTenant({ empresaId, nome, email, senha })
+    const jaExiste = await prisma.acessoRoteamento.findUnique({ where: { email } })
+    if (jaExiste && jaExiste.empresaId !== empresaId) {
+      throw new Error(
+        `O e-mail "${email}" já está cadastrado como acesso de outra empresa. Cada e-mail só pode apontar pra uma empresa.`
+      )
+    }
 
-  // 2) Cria o roteamento (email -> empresa) que o login do Ecdise consulta.
-  await prisma.acessoRoteamento.create({
-    data: { empresaId, email, nome },
-  })
+    // 1) Cria/reseta o usuário DE VERDADE (com senha) no banco daquele tenant.
+    //    O AcessoRoteamento abaixo é só o roteamento — sem isso aqui, o e-mail
+    //    cadastrado nunca conseguiria logar (não existiria como Usuario em
+    //    banco nenhum).
+    await provisionarUsuarioNoTenant({ empresaId, nome, email, senha })
 
-  await registrarAuditoria({
-    acao: 'ACESSO_CRIADO',
-    empresaId,
-    detalhes: email,
-  })
+    // 2) Cria o roteamento (email -> empresa) que o login do Ecdise consulta.
+    await prisma.acessoRoteamento.upsert({
+      where: { email },
+      update: { empresaId, nome },
+      create: { empresaId, email, nome },
+    })
 
-  revalidatePath(`/comercial/${empresaId}`)
-  redirect(`/comercial/${empresaId}?acessoCriado=1`)
+    await registrarAuditoria({ acao: 'ACESSO_CRIADO', empresaId, detalhes: email })
+
+    revalidatePath(`/comercial/${empresaId}`)
+    redirect(`/comercial/${empresaId}?acessoCriado=1`)
+  } catch (err) {
+    if (isNextRedirectError(err)) throw err
+    console.error('[criarAcesso] falha:', err)
+    await registrarAuditoria({ acao: 'ACESSO_CRIADO_FALHOU', sucesso: false, empresaId, detalhes: mensagemDeErro(err) })
+    redirectComErro(`/comercial/${empresaId}`, mensagemDeErro(err))
+  }
 }
 
 async function provisionarUsuarioNoTenant(params: {
@@ -180,39 +206,95 @@ async function provisionarUsuarioNoTenant(params: {
 }
 
 export async function removerAcesso(empresaId: string, acessoId: string) {
-  const acesso = await prisma.acessoRoteamento.findUnique({ where: { id: acessoId } })
-  await prisma.acessoRoteamento.delete({ where: { id: acessoId } })
+  try {
+    const acesso = await prisma.acessoRoteamento.findUnique({ where: { id: acessoId } })
+    await prisma.acessoRoteamento.delete({ where: { id: acessoId } })
 
-  await registrarAuditoria({
-    acao: 'ACESSO_REMOVIDO',
-    empresaId,
-    detalhes: acesso?.email ?? acessoId,
-  })
+    await registrarAuditoria({ acao: 'ACESSO_REMOVIDO', empresaId, detalhes: acesso?.email ?? acessoId })
 
-  revalidatePath(`/comercial/${empresaId}`)
+    revalidatePath(`/comercial/${empresaId}`)
+  } catch (err) {
+    console.error('[removerAcesso] falha:', err)
+    redirectComErro(`/comercial/${empresaId}`, mensagemDeErro(err))
+  }
 }
 
 export async function atualizarModulosForm(id: string, formData: FormData) {
-  const modulosMarcados = formData.getAll('modulos').map(String)
-  await atualizarModulos(id, modulosMarcados)
-  redirect(`/comercial/${id}?modulosSalvos=1`)
+  try {
+    const modulosMarcados = formData.getAll('modulos').map(String)
+    await atualizarModulos(id, modulosMarcados)
+    redirect(`/comercial/${id}?modulosSalvos=1`)
+  } catch (err) {
+    if (isNextRedirectError(err)) throw err
+    console.error('[atualizarModulosForm] falha:', err)
+    redirectComErro(`/comercial/${id}`, mensagemDeErro(err))
+  }
+}
+
+// Aceita só postgres://... ou postgresql://..., checagem simples de formato
+// pra pegar erro de cópia/cola antes de salvar algo que só ia quebrar na
+// hora do cliente tentar logar.
+function validarConnectionString(url: string) {
+  if (!/^postgres(ql)?:\/\/.+/.test(url.trim())) {
+    throw new Error('Isso não parece uma connection string do Postgres válida (precisa começar com "postgresql://").')
+  }
 }
 
 export async function atualizarDatabaseUrl(id: string, formData: FormData) {
-  const { encrypt } = await import('@/lib/crypto')
-  const novaUrl = campoTexto(formData, 'databaseUrl')
-  if (!novaUrl) throw new Error('Connection string é obrigatória.')
+  try {
+    const { encrypt } = await import('@/lib/crypto')
+    const novaUrl = campoTexto(formData, 'databaseUrl')
+    if (!novaUrl) throw new Error('Connection string é obrigatória.')
+    validarConnectionString(novaUrl)
 
-  await prisma.empresa.update({
-    where: { id },
-    data: { databaseUrlCriptografada: encrypt(novaUrl) },
-  })
+    await prisma.empresa.update({
+      where: { id },
+      data: { databaseUrlCriptografada: encrypt(novaUrl) },
+    })
 
-  await registrarAuditoria({
-    acao: 'DATABASE_URL_ATUALIZADA',
-    empresaId: id,
-    detalhes: 'connection string trocada (valor não fica no log, só a ação)',
-  })
+    await registrarAuditoria({
+      acao: 'DATABASE_URL_ATUALIZADA',
+      empresaId: id,
+      detalhes: 'connection string trocada (valor não fica no log, só a ação)',
+    })
 
-  revalidatePath(`/comercial/${id}`)
+    revalidatePath(`/comercial/${id}`)
+    redirect(`/comercial/${id}?bancoSalvo=1`)
+  } catch (err) {
+    if (isNextRedirectError(err)) throw err
+    console.error('[atualizarDatabaseUrl] falha:', err)
+    redirectComErro(`/comercial/${id}`, mensagemDeErro(err))
+  }
+}
+
+export async function excluirEmpresa(id: string, formData: FormData) {
+  const caminhoConfirmar = `/comercial/${id}/excluir`
+  try {
+    const empresa = await prisma.empresa.findUnique({ where: { id } })
+    if (!empresa) throw new Error('Empresa não encontrada.')
+
+    const confirmacao = campoTexto(formData, 'confirmacao')
+    if (confirmacao !== empresa.nomeEmpresa) {
+      throw new Error('O nome digitado não bate com o nome da empresa. Digite exatamente igual pra confirmar a exclusão.')
+    }
+
+    // Cascade no schema já apaga ModuloContratado e AcessoRoteamento junto.
+    // O banco Neon do cliente NÃO é apagado (fica fora do controle deste
+    // sistema) — nem o Usuario real que existe no banco do tenant. Só some
+    // o registro comercial e o roteamento de login daqui pra frente.
+    await prisma.empresa.delete({ where: { id } })
+
+    await registrarAuditoria({
+      acao: 'EMPRESA_EXCLUIDA',
+      empresaId: id,
+      detalhes: `"${empresa.nomeEmpresa}" — banco Neon e usuário do tenant NÃO foram apagados, só o registro comercial.`,
+    })
+
+    revalidatePath('/comercial')
+    redirect('/comercial?empresaExcluida=1')
+  } catch (err) {
+    if (isNextRedirectError(err)) throw err
+    console.error('[excluirEmpresa] falha:', err)
+    redirectComErro(caminhoConfirmar, mensagemDeErro(err))
+  }
 }

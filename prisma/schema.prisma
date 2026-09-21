@@ -131,3 +131,15 @@ model LogAuditoria {
   @@index([quando])
   @@index([acao])
 }
+
+// --- Pool de bancos Neon prontos, ainda não atribuídos a nenhum cliente ---
+// Quando um cliente é excluído (ex: empresa de teste), o banco Neon dele não
+// é apagado — fica "sobrando". Em vez de perder isso, registra aqui pra
+// reaproveitar no próximo cliente de verdade, sem precisar criar um banco
+// novo no Neon toda vez.
+model BancoDisponivel {
+  id                       String   @id @default(cuid())
+  apelido                  String
+  databaseUrlCriptografada String
+  criadoEm                 DateTime @default(now())
+}

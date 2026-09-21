@@ -47,3 +47,13 @@ export const TIPO_CONTRATO_LABELS: Record<string, string> = {
   SAAS_MENSAL: 'SaaS Mensal',
   LICENCA_DE_USO: 'Licença de Uso',
 }
+
+// Mostra só o host da connection string (e esconde usuário/senha), pra dar
+// pra reconhecer qual banco Neon é sem expor credencial na tela — mesmo
+// numa área só de admin, é melhor hábito.
+export function mascararConnectionString(url: string): string {
+  const match = url.match(/@([^/]+)\/([^?]+)/)
+  if (!match) return '(formato não reconhecido)'
+  const [, host, banco] = match
+  return `postgresql://•••@${host}/${banco}`
+}

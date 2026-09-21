@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { STATUS_LABELS, STATUS_ORDEM, TIPO_CONTRATO_LABELS, formatCentavos } from '@/lib/format'
 import { MODULOS_CATALOGO } from '@/lib/modulos'
 import { atualizarEmpresa, atualizarModulosForm, criarAcesso, removerAcesso, atualizarDatabaseUrl } from '../actions'
+import { usarBancoNaEmpresa } from '../../bancos/actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,12 +12,15 @@ export default async function EditarEmpresaPage({
   searchParams,
 }: {
   params: { id: string }
-  searchParams: { modulosSalvos?: string; acessoCriado?: string }
+  searchParams: { modulosSalvos?: string; acessoCriado?: string; salvo?: string; bancoSalvo?: string; erro?: string }
 }) {
-  const empresa = await prisma.empresa.findUnique({
-    where: { id: params.id },
-    include: { modulosContratados: true, acessos: { orderBy: { criadoEm: 'desc' } } },
-  })
+  const [empresa, bancosDisponiveis] = await Promise.all([
+    prisma.empresa.findUnique({
+      where: { id: params.id },
+      include: { modulosContratados: true, acessos: { orderBy: { criadoEm: 'desc' } } },
+    }),
+    prisma.bancoDisponivel.findMany({ orderBy: { criadoEm: 'desc' } }),
+  ])
   if (!empresa) notFound()
 
   const modulosAtivos = new Set(empresa.modulosContratados.filter((m) => m.ativo).map((m) => m.modulo))
@@ -24,23 +28,30 @@ export default async function EditarEmpresaPage({
   const atualizarModulosComId = atualizarModulosForm.bind(null, empresa.id)
   const criarAcessoComId = criarAcesso.bind(null, empresa.id)
   const atualizarDatabaseUrlComId = atualizarDatabaseUrl.bind(null, empresa.id)
+  const usarBancoComId = usarBancoNaEmpresa.bind(null, empresa.id)
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">{empresa.nomeEmpresa}</h1>
-        <p className="text-sm text-neutral-500">
-          {STATUS_LABELS[empresa.status]}
-          {empresa.tipoContrato ? ` · ${TIPO_CONTRATO_LABELS[empresa.tipoContrato]}` : ''}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">{empresa.nomeEmpresa}</h1>
+          <p className="text-sm text-neutral-500">
+            {STATUS_LABELS[empresa.status]}
+            {empresa.tipoContrato ? ` · ${TIPO_CONTRATO_LABELS[empresa.tipoContrato]}` : ''}
+          </p>
+        </div>
+        <a href={`/comercial/${empresa.id}/excluir`} className="text-xs font-medium text-red-600 hover:text-red-800">
+          Excluir empresa
+        </a>
       </div>
 
-      {searchParams.modulosSalvos && (
-        <Aviso>Módulos salvos com sucesso.</Aviso>
-      )}
+      {searchParams.erro && <Erro>{searchParams.erro}</Erro>}
+      {searchParams.salvo && <Aviso>Dados salvos com sucesso.</Aviso>}
+      {searchParams.modulosSalvos && <Aviso>Módulos salvos com sucesso.</Aviso>}
       {searchParams.acessoCriado && (
         <Aviso>Acesso criado — o usuário já pode logar no Ecdise com o e-mail e a senha cadastrados.</Aviso>
       )}
+      {searchParams.bancoSalvo && <Aviso>Banco de dados desta empresa atualizado.</Aviso>}
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold text-neutral-700">Dados comerciais</h2>
@@ -199,8 +210,28 @@ export default async function EditarEmpresaPage({
             <span className="font-medium text-amber-600">ainda não configurado</span>
           )}
         </p>
+
+        {bancosDisponiveis.length > 0 && (
+          <form action={usarBancoComId} className="mb-4 flex flex-wrap items-end gap-3 rounded-md border border-neutral-100 bg-neutral-50 p-3">
+            <Campo label="Ou use um banco já disponível no pool">
+              <select name="bancoId" required className="input w-72">
+                <option value="">— selecione —</option>
+                {bancosDisponiveis.map((b) => (
+                  <option key={b.id} value={b.id}>{b.apelido}</option>
+                ))}
+              </select>
+            </Campo>
+            <button type="submit" className="rounded-md bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-900">
+              Usar este banco
+            </button>
+            <span className="text-xs text-neutral-500">
+              (tira do pool e substitui o banco atual desta empresa, se já houver um configurado)
+            </span>
+          </form>
+        )}
+
         <form action={atualizarDatabaseUrlComId} className="flex flex-wrap items-end gap-3">
-          <Campo label="Connection string (postgresql://...)">
+          <Campo label="Ou cole a connection string diretamente (postgresql://...)">
             <input name="databaseUrl" placeholder="postgresql://usuario:senha@host/banco?sslmode=require" className="input w-96" />
           </Campo>
           <button type="submit" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
@@ -224,6 +255,14 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 function Aviso({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-md border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-700">
+      {children}
+    </div>
+  )
+}
+
+function Erro({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
       {children}
     </div>
   )
