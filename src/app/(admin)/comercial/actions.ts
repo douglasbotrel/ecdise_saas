@@ -105,6 +105,11 @@ export async function criarAcesso(empresaId: string, formData: FormData) {
   revalidatePath(`/comercial/${empresaId}`)
 }
 
+export async function removerAcesso(empresaId: string, acessoId: string) {
+  await prisma.acessoRoteamento.delete({ where: { id: acessoId } })
+  revalidatePath(`/comercial/${empresaId}`)
+}
+
 export async function atualizarModulosForm(id: string, formData: FormData) {
   const modulosMarcados = formData.getAll('modulos').map(String)
   await atualizarModulos(id, modulosMarcados)

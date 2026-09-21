@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { STATUS_LABELS, STATUS_ORDEM, TIPO_CONTRATO_LABELS, formatCentavos } from '@/lib/format'
 import { MODULOS_CATALOGO } from '@/lib/modulos'
-import { atualizarEmpresa, atualizarModulosForm, criarAcesso, atualizarDatabaseUrl } from '../actions'
+import { atualizarEmpresa, atualizarModulosForm, criarAcesso, removerAcesso, atualizarDatabaseUrl } from '../actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -137,14 +137,24 @@ export default async function EditarEmpresaPage({ params }: { params: { id: stri
         </p>
         <ul className="mb-4 space-y-1 text-sm">
           {empresa.acessos.length === 0 && <li className="text-neutral-400">Nenhum acesso cadastrado ainda.</li>}
-          {empresa.acessos.map((acesso) => (
-            <li key={acesso.id} className="flex items-center justify-between rounded border border-neutral-100 px-3 py-2">
-              <span>{acesso.nome ? `${acesso.nome} — ` : ''}{acesso.email}</span>
-              <span className={acesso.ativo ? 'text-brand-600' : 'text-neutral-400'}>
-                {acesso.ativo ? 'ativo' : 'inativo'}
-              </span>
-            </li>
-          ))}
+          {empresa.acessos.map((acesso) => {
+            const removerAcessoComId = removerAcesso.bind(null, empresa.id, acesso.id)
+            return (
+              <li key={acesso.id} className="flex items-center justify-between rounded border border-neutral-100 px-3 py-2">
+                <span>{acesso.nome ? `${acesso.nome} — ` : ''}{acesso.email}</span>
+                <div className="flex items-center gap-3">
+                  <span className={acesso.ativo ? 'text-brand-600' : 'text-neutral-400'}>
+                    {acesso.ativo ? 'ativo' : 'inativo'}
+                  </span>
+                  <form action={removerAcessoComId}>
+                    <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800">
+                      Remover
+                    </button>
+                  </form>
+                </div>
+              </li>
+            )
+          })}
         </ul>
         <form action={criarAcessoComId} className="flex flex-wrap items-end gap-3">
           <Campo label="Nome">
