@@ -109,3 +109,15 @@ export async function atualizarModulosForm(id: string, formData: FormData) {
   const modulosMarcados = formData.getAll('modulos').map(String)
   await atualizarModulos(id, modulosMarcados)
 }
+
+export async function atualizarDatabaseUrl(id: string, formData: FormData) {
+  const { encrypt } = await import('@/lib/crypto')
+  const novaUrl = campoTexto(formData, 'databaseUrl')
+  if (!novaUrl) throw new Error('Connection string é obrigatória.')
+
+  await prisma.empresa.update({
+    where: { id },
+    data: { databaseUrlCriptografada: encrypt(novaUrl) },
+  })
+  revalidatePath(`/comercial/${id}`)
+}

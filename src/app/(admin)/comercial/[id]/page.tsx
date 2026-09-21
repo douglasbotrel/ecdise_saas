@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { STATUS_LABELS, STATUS_ORDEM, TIPO_CONTRATO_LABELS, formatCentavos } from '@/lib/format'
 import { MODULOS_CATALOGO } from '@/lib/modulos'
-import { atualizarEmpresa, atualizarModulosForm, criarAcesso } from '../actions'
+import { atualizarEmpresa, atualizarModulosForm, criarAcesso, atualizarDatabaseUrl } from '../actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +17,7 @@ export default async function EditarEmpresaPage({ params }: { params: { id: stri
   const atualizarComId = atualizarEmpresa.bind(null, empresa.id)
   const atualizarModulosComId = atualizarModulosForm.bind(null, empresa.id)
   const criarAcessoComId = criarAcesso.bind(null, empresa.id)
+  const atualizarDatabaseUrlComId = atualizarDatabaseUrl.bind(null, empresa.id)
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -154,6 +155,30 @@ export default async function EditarEmpresaPage({ params }: { params: { id: stri
           </Campo>
           <button type="submit" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
             + Adicionar acesso
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-lg border border-neutral-200 bg-white p-5">
+        <h2 className="mb-1 text-sm font-semibold text-neutral-700">Banco de dados desta empresa</h2>
+        <p className="mb-4 text-xs text-neutral-500">
+          Connection string do banco Neon exclusivo desse cliente (criada seguindo o playbook de provisionamento).
+          Fica guardada criptografada — é o que o login multi-tenant do Ecdise vai consultar pra saber em qual banco entrar.
+        </p>
+        <p className="mb-4 text-sm">
+          Status:{' '}
+          {empresa.databaseUrlCriptografada ? (
+            <span className="font-medium text-brand-600">configurado</span>
+          ) : (
+            <span className="font-medium text-amber-600">ainda não configurado</span>
+          )}
+        </p>
+        <form action={atualizarDatabaseUrlComId} className="flex flex-wrap items-end gap-3">
+          <Campo label="Connection string (postgresql://...)">
+            <input name="databaseUrl" placeholder="postgresql://usuario:senha@host/banco?sslmode=require" className="input w-96" />
+          </Campo>
+          <button type="submit" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+            Salvar (criptografado)
           </button>
         </form>
       </section>
