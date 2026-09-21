@@ -1,0 +1,113 @@
+// Banco central do Ecdise SaaS ("control plane").
+// Guarda só quem são as empresas clientes, o funil comercial, os módulos
+// contratados por cada uma e o roteamento de login — nunca dados operacionais
+// do dia a dia do cliente (isso mora no banco próprio de cada empresa).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Funil comercial / ciclo de vida do cliente -----------------------
+
+enum StatusEmpresa {
+  LEAD
+  PROPOSTA_ENVIADA
+  EM_NEGOCIACAO
+  CONTRATO_FECHADO
+  EM_IMPLANTACAO
+  ATIVO
+  CANCELADO
+}
+
+enum TipoContrato {
+  SAAS_MENSAL
+  LICENCA_DE_USO
+}
+
+// Catálogo fechado de módulos do Ecdise (extraído de src/app/(dashboard)
+// e de MODULOS_POR_ROLE em src/lib/utils.ts). Atualizar aqui sempre que
+// um módulo novo nascer no produto.
+enum ModuloKey {
+  DASHBOARD
+  TAREFAS_SEMANA
+  COMERCIAL
+  CLIENTES
+  CONTRATOS
+  OPERACIONAL
+  ACOMPANHAMENTO
+  LICENCAS
+  CAMPO
+  TECNICO
+  FINANCEIRO
+  ENCERRAMENTO
+  BI
+  CONFIGURACOES
+}
+
+// --- Empresa: o cliente do SaaS (não confundir com "Cliente" dentro do
+// Ecdise, que é cliente da consultoria ambiental) ----------------------
+
+model Empresa {
+  id        String   @id @default(cuid())
+  criadoEm  DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Comercial
+  nomeEmpresa       String
+  cnpj              String?
+  responsavelNome   String
+  responsavelEmail  String
+  responsavelTelefone String?
+  status            StatusEmpresa @default(LEAD)
+  tipoContrato      TipoContrato?
+  dataFechamentoContrato DateTime?
+
+  // Valores (todos em centavos, pra evitar erro de ponto flutuante)
+  valorFechadoCentavos       Int?
+  valorInstalacaoCentavos    Int?
+  valorMensalCentavos        Int?
+  valorCustomizacaoCentavos  Int?
+  valorCompraCentavos        Int?
+
+  observacoesComerciais String?
+
+  // Técnico / provisionamento
+  databaseUrlCriptografada String?
+  dominioProprio            String?
+  provisionadoEm             DateTime?
+
+  modulosContratados ModuloContratado[]
+  acessos            AcessoRoteamento[]
+
+  @@index([status])
+}
+
+// Módulos contratados por empresa, à la carte (um registro por módulo ativo)
+model ModuloContratado {
+  id           String    @id @default(cuid())
+  empresaId    String
+  empresa      Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  modulo       ModuloKey
+  ativo        Boolean   @default(true)
+  dataAtivacao DateTime  @default(now())
+
+  @@unique([empresaId, modulo])
+}
+
+// Roteamento de login: e-mail -> empresa. Preenchido manualmente por você
+// ao criar o acesso de cada cliente (não há detecção automática por domínio).
+// A senha em si vive no banco daquela empresa, nunca aqui.
+model AcessoRoteamento {
+  id        String   @id @default(cuid())
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  email     String   @unique
+  nome      String?
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+}
