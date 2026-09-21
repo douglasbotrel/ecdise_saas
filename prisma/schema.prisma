@@ -111,3 +111,23 @@ model AcessoRoteamento {
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
 }
+
+// --- Auditoria -----------------------------------------------------
+// Trilha de auditoria centralizada: toda ação administrativa relevante
+// (login, criação/edição de empresa, mudança de módulos, criação/remoção
+// de acesso, troca de connection string) grava um registro aqui, pra dar
+// pra buscar "quem fez o quê, quando" depois de qualquer suspeita.
+model LogAuditoria {
+  id        String   @id @default(cuid())
+  quando    DateTime @default(now())
+  acao      String
+  sucesso   Boolean  @default(true)
+  empresaId String?
+  ator      String?
+  detalhes  String?
+  ip        String?
+
+  @@index([empresaId])
+  @@index([quando])
+  @@index([acao])
+}

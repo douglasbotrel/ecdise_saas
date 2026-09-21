@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { parseValorParaCentavos } from '@/lib/format'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { registrarAuditoria } from '@/lib/auditoria'
 
 function campoTexto(formData: FormData, nome: string): string | null {
   const valor = formData.get(nome)
@@ -42,6 +43,12 @@ export async function criarEmpresa(formData: FormData) {
     },
   })
 
+  await registrarAuditoria({
+    acao: 'EMPRESA_CRIADA',
+    empresaId: empresa.id,
+    detalhes: `"${empresa.nomeEmpresa}"`,
+  })
+
   revalidatePath('/comercial')
   redirect(`/comercial/${empresa.id}`)
 }
@@ -77,6 +84,8 @@ export async function atualizarEmpresa(id: string, formData: FormData) {
     },
   })
 
+  await registrarAuditoria({ acao: 'EMPRESA_ATUALIZADA', empresaId: id })
+
   revalidatePath('/comercial')
   revalidatePath(`/comercial/${id}`)
 }
@@ -88,16 +97,27 @@ export async function atualizarModulos(id: string, modulosMarcados: string[]) {
       data: modulosMarcados.map((modulo) => ({ empresaId: id, modulo: modulo as any })),
     }),
   ])
+
+  await registrarAuditoria({
+    acao: 'MODULOS_ATUALIZADOS',
+    empresaId: id,
+    detalhes: modulosMarcados.join(', ') || '(nenhum módulo ativo)',
+  })
+
   revalidatePath(`/comercial/${id}`)
 }
 
 export async function criarAcesso(empresaId: string, formData: FormData) {
-  const email = campoTexto(formData, 'email')
+  const emailDigitado = campoTexto(formData, 'email')
   const nome = campoTexto(formData, 'nome')
   const senha = campoTexto(formData, 'senha')
-  if (!email) throw new Error('E-mail é obrigatório.')
+  if (!emailDigitado) throw new Error('E-mail é obrigatório.')
   if (!senha) throw new Error('Senha é obrigatória — é ela que o cliente vai usar pra entrar.')
   if (senha.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.')
+
+  // Normaliza pra minúsculo aqui — o login (e o roteamento) sempre comparam
+  // e-mail em minúsculo, então um cadastro com maiúsculas nunca bateria.
+  const email = emailDigitado.toLowerCase()
 
   // 1) Cria/reseta o usuário DE VERDADE (com senha) no banco daquele tenant.
   //    O AcessoRoteamento abaixo é só o roteamento — sem isso aqui, o e-mail
@@ -108,6 +128,12 @@ export async function criarAcesso(empresaId: string, formData: FormData) {
   // 2) Cria o roteamento (email -> empresa) que o login do Ecdise consulta.
   await prisma.acessoRoteamento.create({
     data: { empresaId, email, nome },
+  })
+
+  await registrarAuditoria({
+    acao: 'ACESSO_CRIADO',
+    empresaId,
+    detalhes: email,
   })
 
   revalidatePath(`/comercial/${empresaId}`)
@@ -154,7 +180,15 @@ async function provisionarUsuarioNoTenant(params: {
 }
 
 export async function removerAcesso(empresaId: string, acessoId: string) {
+  const acesso = await prisma.acessoRoteamento.findUnique({ where: { id: acessoId } })
   await prisma.acessoRoteamento.delete({ where: { id: acessoId } })
+
+  await registrarAuditoria({
+    acao: 'ACESSO_REMOVIDO',
+    empresaId,
+    detalhes: acesso?.email ?? acessoId,
+  })
+
   revalidatePath(`/comercial/${empresaId}`)
 }
 
@@ -173,5 +207,12 @@ export async function atualizarDatabaseUrl(id: string, formData: FormData) {
     where: { id },
     data: { databaseUrlCriptografada: encrypt(novaUrl) },
   })
+
+  await registrarAuditoria({
+    acao: 'DATABASE_URL_ATUALIZADA',
+    empresaId: id,
+    detalhes: 'connection string trocada (valor não fica no log, só a ação)',
+  })
+
   revalidatePath(`/comercial/${id}`)
 }
